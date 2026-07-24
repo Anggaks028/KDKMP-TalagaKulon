@@ -1,6 +1,6 @@
 {
   "name": "Koperasi Desa Merah Putih Talagakulon",
-  "description": "Microsite Resmi & Portal Digital Koperasi Desa Merah Putih, Desa Talagakulon, Kecamatan Talaga, Kabupaten Majalengka",
+  "description": "Microsite Resmi Koperasi Desa Merah Putih Desa Talagakulon, Kecamatan Talaga, Kabupaten Majalengka - Portal Informasi, Produk UMKM, Potensi Desa, & Layanan Koperasi.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
