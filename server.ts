@@ -1,421 +1,259 @@
-import express from 'express';
-import path from 'path';
-import fs from 'fs';
-import { createServer as createViteServer } from 'vite';
-import {
-  initialProfilKoperasi,
-  initialPengurus,
-  initialPotensiDesa,
-  initialKategoriProduk,
-  initialProduk,
-  initialKategoriArtikel,
-  initialArtikel,
-  initialPromo,
-  initialGaleri,
-  initialMitra,
-  initialFAQ,
-  initialBanner,
-  initialPengaturanWeb,
-  initialStatistik
-} from './src/data/initialData.js';
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
+import { createServer as createViteServer } from "vite";
+import { GoogleGenAI } from "@google/genai";
 
-const app = express();
-const PORT = 3000;
+import { 
+  initialProfile, initialPengurus, initialPotensi, initialProducts, 
+  initialArticles, initialPromos, initialGallery, initialPartners, initialFAQs 
+} from "./src/data/initialData.ts";
 
-// Body parser
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Database Persistence File Path
-const DB_FILE = path.join(process.cwd(), 'data', 'database.json');
-
-// Interface for DB state
-interface DatabaseState {
-  profil: typeof initialProfilKoperasi;
-  pengurus: typeof initialPengurus;
-  potensi: typeof initialPotensiDesa;
-  kategoriProduk: typeof initialKategoriProduk;
-  produk: typeof initialProduk;
-  kategoriArtikel: typeof initialKategoriArtikel;
-  artikel: typeof initialArtikel;
-  promo: typeof initialPromo;
-  galeri: typeof initialGaleri;
-  mitra: typeof initialMitra;
-  faq: typeof initialFAQ;
-  pesan: any[];
-  banner: typeof initialBanner;
-  pengaturan: typeof initialPengaturanWeb;
-  statistik: typeof initialStatistik;
-}
-
-// Memory Cache initialized from disk or defaults
-let db: DatabaseState = {
-  profil: initialProfilKoperasi,
-  pengurus: initialPengurus,
-  potensi: initialPotensiDesa,
-  kategoriProduk: initialKategoriProduk,
-  produk: initialProduk,
-  kategoriArtikel: initialKategoriArtikel,
-  artikel: initialArtikel,
-  promo: initialPromo,
-  galeri: initialGaleri,
-  mitra: initialMitra,
-  faq: initialFAQ,
-  pesan: [
-    {
-      id: 'pesan-1',
-      nama: 'Bapak Dudung',
-      email: 'dudung.talaga@gmail.com',
-      whatsapp: '081234567890',
-      subjek: 'Pertanyaan Pemesanan Beras Pandanwangi',
-      pesan: 'Assalamu alaikum admin, apakah beras pandanwangi sak 5kg bisa dikirim ke Cirebon untuk pembelian 10 sak?',
-      tanggal: new Date().toLocaleDateString('id-ID'),
-      dibaca: false
-    }
-  ],
-  banner: initialBanner,
-  pengaturan: initialPengaturanWeb,
-  statistik: initialStatistik
-};
-
-function loadDatabase() {
-  try {
-    if (fs.existsSync(DB_FILE)) {
-      const data = fs.readFileSync(DB_FILE, 'utf-8');
-      const parsed = JSON.parse(data);
-      db = { ...db, ...parsed };
-      console.log('Database loaded successfully from disk.');
-    } else {
-      saveDatabase();
-    }
-  } catch (err) {
-    console.error('Error loading database file, using default values:', err);
-  }
-}
-
-function saveDatabase() {
-  try {
-    const dir = path.dirname(DB_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf-8');
-  } catch (err) {
-    console.error('Error saving database to file:', err);
-  }
-}
-
-// Load DB on startup
-loadDatabase();
-
-// API ROUTES
-const router = express.Router();
-
-// GET all data
-router.get('/data', (req, res) => {
-  res.json({
-    success: true,
-    data: db
-  });
-});
-
-// Admin Auth Login
-router.post('/auth/login', (req, res) => {
-  const { username, password } = req.body;
-  if (username === 'admin' && password === 'admin123') {
-    return res.json({
-      success: true,
-      token: 'token-koperasi-admin-talagakulon-2026',
-      user: {
-        id: 'usr-1',
-        name: 'Administrator Koperasi',
-        role: 'Super Admin',
-        username: 'admin'
-      }
-    });
-  }
-  return res.status(401).json({ success: false, message: 'Username atau password salah! (Gunakan: admin / admin123)' });
-});
-
-// CRUD: Profil
-router.put('/profil', (req, res) => {
-  db.profil = { ...db.profil, ...req.body };
-  saveDatabase();
-  res.json({ success: true, data: db.profil, message: 'Profil Koperasi berhasil diperbarui!' });
-});
-
-// CRUD: Pengurus
-router.post('/pengurus', (req, res) => {
-  const newPengurus = { id: 'p-' + Date.now(), urutan: db.pengurus.length + 1, ...req.body };
-  db.pengurus.push(newPengurus);
-  saveDatabase();
-  res.json({ success: true, data: newPengurus, message: 'Data pengurus berhasil ditambahkan!' });
-});
-
-router.put('/pengurus/:id', (req, res) => {
-  const index = db.pengurus.findIndex(p => p.id === req.params.id);
-  if (index !== -1) {
-    db.pengurus[index] = { ...db.pengurus[index], ...req.body };
-    saveDatabase();
-    res.json({ success: true, data: db.pengurus[index], message: 'Data pengurus berhasil diperbarui!' });
-  } else {
-    res.status(404).json({ success: false, message: 'Pengurus tidak ditemukan' });
-  }
-});
-
-router.delete('/pengurus/:id', (req, res) => {
-  db.pengurus = db.pengurus.filter(p => p.id !== req.params.id);
-  saveDatabase();
-  res.json({ success: true, message: 'Pengurus berhasil dihapus!' });
-});
-
-// CRUD: Potensi Desa
-router.post('/potensi', (req, res) => {
-  const newPotensi = { id: 'pot-' + Date.now(), ...req.body };
-  db.potensi.push(newPotensi);
-  saveDatabase();
-  res.json({ success: true, data: newPotensi, message: 'Potensi Desa berhasil ditambahkan!' });
-});
-
-router.put('/potensi/:id', (req, res) => {
-  const index = db.potensi.findIndex(p => p.id === req.params.id);
-  if (index !== -1) {
-    db.potensi[index] = { ...db.potensi[index], ...req.body };
-    saveDatabase();
-    res.json({ success: true, data: db.potensi[index], message: 'Potensi Desa berhasil diperbarui!' });
-  } else {
-    res.status(404).json({ success: false, message: 'Potensi tidak ditemukan' });
-  }
-});
-
-router.delete('/potensi/:id', (req, res) => {
-  db.potensi = db.potensi.filter(p => p.id !== req.params.id);
-  saveDatabase();
-  res.json({ success: true, message: 'Potensi berhasil dihapus!' });
-});
-
-// CRUD: Kategori Produk
-router.post('/kategori-produk', (req, res) => {
-  const newKat = { id: 'kat-' + Date.now(), ...req.body };
-  db.kategoriProduk.push(newKat);
-  saveDatabase();
-  res.json({ success: true, data: newKat });
-});
-
-// CRUD: Produk
-router.post('/produk', (req, res) => {
-  const newProduk = { id: 'prod-' + Date.now(), slug: 'prod-' + Date.now(), ...req.body };
-  db.produk.push(newProduk);
-  db.statistik.jumlahProduk = db.produk.length;
-  saveDatabase();
-  res.json({ success: true, data: newProduk, message: 'Produk berhasil ditambahkan!' });
-});
-
-router.put('/produk/:id', (req, res) => {
-  const index = db.produk.findIndex(p => p.id === req.params.id);
-  if (index !== -1) {
-    db.produk[index] = { ...db.produk[index], ...req.body };
-    saveDatabase();
-    res.json({ success: true, data: db.produk[index], message: 'Produk berhasil diperbarui!' });
-  } else {
-    res.status(404).json({ success: false, message: 'Produk tidak ditemukan' });
-  }
-});
-
-router.delete('/produk/:id', (req, res) => {
-  db.produk = db.produk.filter(p => p.id !== req.params.id);
-  db.statistik.jumlahProduk = db.produk.length;
-  saveDatabase();
-  res.json({ success: true, message: 'Produk berhasil dihapus!' });
-});
-
-// CRUD: Artikel
-router.post('/artikel', (req, res) => {
-  const newArtikel = { id: 'art-' + Date.now(), slug: 'art-' + Date.now(), viewCount: 0, ...req.body };
-  db.artikel.unshift(newArtikel);
-  db.statistik.jumlahArtikel = db.artikel.length;
-  saveDatabase();
-  res.json({ success: true, data: newArtikel, message: 'Artikel berita berhasil ditambahkan!' });
-});
-
-router.put('/artikel/:id', (req, res) => {
-  const index = db.artikel.findIndex(a => a.id === req.params.id);
-  if (index !== -1) {
-    db.artikel[index] = { ...db.artikel[index], ...req.body };
-    saveDatabase();
-    res.json({ success: true, data: db.artikel[index], message: 'Artikel berhasil diperbarui!' });
-  } else {
-    res.status(404).json({ success: false, message: 'Artikel tidak ditemukan' });
-  }
-});
-
-router.delete('/artikel/:id', (req, res) => {
-  db.artikel = db.artikel.filter(a => a.id !== req.params.id);
-  db.statistik.jumlahArtikel = db.artikel.length;
-  saveDatabase();
-  res.json({ success: true, message: 'Artikel berhasil dihapus!' });
-});
-
-// CRUD: Promo
-router.post('/promo', (req, res) => {
-  const newPromo = { id: 'prm-' + Date.now(), status: 'Aktif', ...req.body };
-  db.promo.unshift(newPromo);
-  saveDatabase();
-  res.json({ success: true, data: newPromo, message: 'Promo berhasil ditambahkan!' });
-});
-
-router.put('/promo/:id', (req, res) => {
-  const index = db.promo.findIndex(p => p.id === req.params.id);
-  if (index !== -1) {
-    db.promo[index] = { ...db.promo[index], ...req.body };
-    saveDatabase();
-    res.json({ success: true, data: db.promo[index], message: 'Promo berhasil diperbarui!' });
-  } else {
-    res.status(404).json({ success: false, message: 'Promo tidak ditemukan' });
-  }
-});
-
-router.delete('/promo/:id', (req, res) => {
-  db.promo = db.promo.filter(p => p.id !== req.params.id);
-  saveDatabase();
-  res.json({ success: true, message: 'Promo berhasil dihapus!' });
-});
-
-// CRUD: Galeri
-router.post('/galeri', (req, res) => {
-  const newItem = { id: 'gal-' + Date.now(), ...req.body };
-  db.galeri.unshift(newItem);
-  saveDatabase();
-  res.json({ success: true, data: newItem, message: 'Item galeri berhasil ditambahkan!' });
-});
-
-router.delete('/galeri/:id', (req, res) => {
-  db.galeri = db.galeri.filter(g => g.id !== req.params.id);
-  saveDatabase();
-  res.json({ success: true, message: 'Item galeri berhasil dihapus!' });
-});
-
-// CRUD: Mitra
-router.post('/mitra', (req, res) => {
-  const newMitra = { id: 'mit-' + Date.now(), ...req.body };
-  db.mitra.push(newMitra);
-  db.statistik.jumlahMitra = db.mitra.length;
-  saveDatabase();
-  res.json({ success: true, data: newMitra, message: 'Mitra berhasil ditambahkan!' });
-});
-
-router.delete('/mitra/:id', (req, res) => {
-  db.mitra = db.mitra.filter(m => m.id !== req.params.id);
-  db.statistik.jumlahMitra = db.mitra.length;
-  saveDatabase();
-  res.json({ success: true, message: 'Mitra berhasil dihapus!' });
-});
-
-// CRUD: FAQ
-router.post('/faq', (req, res) => {
-  const newFaq = { id: 'faq-' + Date.now(), ...req.body };
-  db.faq.push(newFaq);
-  saveDatabase();
-  res.json({ success: true, data: newFaq, message: 'FAQ berhasil ditambahkan!' });
-});
-
-router.put('/faq/:id', (req, res) => {
-  const index = db.faq.findIndex(f => f.id === req.params.id);
-  if (index !== -1) {
-    db.faq[index] = { ...db.faq[index], ...req.body };
-    saveDatabase();
-    res.json({ success: true, data: db.faq[index], message: 'FAQ berhasil diperbarui!' });
-  } else {
-    res.status(404).json({ success: false, message: 'FAQ tidak ditemukan' });
-  }
-});
-
-router.delete('/faq/:id', (req, res) => {
-  db.faq = db.faq.filter(f => f.id !== req.params.id);
-  saveDatabase();
-  res.json({ success: true, message: 'FAQ berhasil dihapus!' });
-});
-
-// POST Kontak Pesan (Form Kontak)
-router.post('/pesan', (req, res) => {
-  const newPesan = {
-    id: 'pesan-' + Date.now(),
-    tanggal: new Date().toLocaleDateString('id-ID'),
-    dibaca: false,
-    ...req.body
-  };
-  db.pesan.unshift(newPesan);
-  saveDatabase();
-  res.json({ success: true, message: 'Pesan Anda berhasil dikirim! Tim Koperasi Talagakulon akan segera menghubungi Anda.' });
-});
-
-router.put('/pesan/:id/baca', (req, res) => {
-  const msg = db.pesan.find(p => p.id === req.params.id);
-  if (msg) {
-    msg.dibaca = true;
-    saveDatabase();
-  }
-  res.json({ success: true });
-});
-
-router.delete('/pesan/:id', (req, res) => {
-  db.pesan = db.pesan.filter(p => p.id !== req.params.id);
-  saveDatabase();
-  res.json({ success: true, message: 'Pesan berhasil dihapus' });
-});
-
-// UPDATE Pengaturan & Banner
-router.put('/pengaturan', (req, res) => {
-  db.pengaturan = { ...db.pengaturan, ...req.body };
-  saveDatabase();
-  res.json({ success: true, data: db.pengaturan, message: 'Pengaturan website berhasil diperbarui!' });
-});
-
-// XML Sitemap Endpoint
-router.get('/sitemap.xml', (req, res) => {
-  const baseUrl = process.env.APP_URL || 'https://koperasi-talagakulon.desa.id';
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>${baseUrl}/</loc><priority>1.0</priority><changefreq>daily</changefreq></url>
-  <url><loc>${baseUrl}/#profil</loc><priority>0.8</priority><changefreq>monthly</changefreq></url>
-  <url><loc>${baseUrl}/#potensi</loc><priority>0.8</priority><changefreq>weekly</changefreq></url>
-  <url><loc>${baseUrl}/#produk</loc><priority>0.9</priority><changefreq>daily</changefreq></url>
-  <url><loc>${baseUrl}/#berita</loc><priority>0.9</priority><changefreq>daily</changefreq></url>
-  <url><loc>${baseUrl}/#promo</loc><priority>0.8</priority><changefreq>weekly</changefreq></url>
-  <url><loc>${baseUrl}/#faq</loc><priority>0.6</priority><changefreq>monthly</changefreq></url>
-  <url><loc>${baseUrl}/#kontak</loc><priority>0.7</priority><changefreq>monthly</changefreq></url>
-</urlset>`;
-  res.header('Content-Type', 'application/xml');
-  res.send(xml);
-});
-
-// Robots.txt
-router.get('/robots.txt', (req, res) => {
-  const baseUrl = process.env.APP_URL || 'https://koperasi-talagakulon.desa.id';
-  res.type('text/plain');
-  res.send(`User-agent: *\nAllow: /\nSitemap: ${baseUrl}/api/sitemap.xml`);
-});
-
-// Mount router under /api
-app.use('/api', router);
+// In-Memory Database Stores with Initial Seed
+let profileData = { ...initialProfile };
+let pengurusData = [...initialPengurus];
+let potensiData = [...initialPotensi];
+let productsData = [...initialProducts];
+let articlesData = [...initialArticles];
+let promosData = [...initialPromos];
+let galleryData = [...initialGallery];
+let partnersData = [...initialPartners];
+let faqsData = [...initialFAQs];
+let contactMessages: any[] = [];
+let memberApplications: any[] = [];
 
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
+  const app = express();
+  const PORT = 3000;
+
+  app.use(express.json({ limit: "10mb" }));
+
+  // --- API ROUTES ---
+
+  // Profile API
+  app.get("/api/profile", (req, res) => {
+    res.json(profileData);
+  });
+  app.put("/api/profile", (req, res) => {
+    profileData = { ...profileData, ...req.body };
+    res.json(profileData);
+  });
+
+  // Pengurus API
+  app.get("/api/pengurus", (req, res) => res.json(pengurusData));
+  app.post("/api/pengurus", (req, res) => {
+    const newItem = { id: `p_${Date.now()}`, ...req.body };
+    pengurusData.push(newItem);
+    res.json(newItem);
+  });
+  app.put("/api/pengurus/:id", (req, res) => {
+    const index = pengurusData.findIndex((p) => p.id === req.params.id);
+    if (index !== -1) {
+      pengurusData[index] = { ...pengurusData[index], ...req.body };
+      return res.json(pengurusData[index]);
+    }
+    res.status(404).json({ error: "Item not found" });
+  });
+  app.delete("/api/pengurus/:id", (req, res) => {
+    pengurusData = pengurusData.filter((p) => p.id !== req.params.id);
+    res.json({ success: true });
+  });
+
+  // Potensi Desa API
+  app.get("/api/potensi", (req, res) => res.json(potensiData));
+  app.post("/api/potensi", (req, res) => {
+    const newItem = { id: `pot_${Date.now()}`, ...req.body };
+    potensiData.push(newItem);
+    res.json(newItem);
+  });
+  app.put("/api/potensi/:id", (req, res) => {
+    const index = potensiData.findIndex((p) => p.id === req.params.id);
+    if (index !== -1) {
+      potensiData[index] = { ...potensiData[index], ...req.body };
+      return res.json(potensiData[index]);
+    }
+    res.status(404).json({ error: "Item not found" });
+  });
+  app.delete("/api/potensi/:id", (req, res) => {
+    potensiData = potensiData.filter((p) => p.id !== req.params.id);
+    res.json({ success: true });
+  });
+
+  // Products API
+  app.get("/api/products", (req, res) => res.json(productsData));
+  app.post("/api/products", (req, res) => {
+    const newItem = { id: `prod_${Date.now()}`, ...req.body };
+    productsData.push(newItem);
+    profileData.stats.productsCount = productsData.length;
+    res.json(newItem);
+  });
+  app.put("/api/products/:id", (req, res) => {
+    const index = productsData.findIndex((p) => p.id === req.params.id);
+    if (index !== -1) {
+      productsData[index] = { ...productsData[index], ...req.body };
+      return res.json(productsData[index]);
+    }
+    res.status(404).json({ error: "Item not found" });
+  });
+  app.delete("/api/products/:id", (req, res) => {
+    productsData = productsData.filter((p) => p.id !== req.params.id);
+    profileData.stats.productsCount = productsData.length;
+    res.json({ success: true });
+  });
+
+  // Articles API
+  app.get("/api/articles", (req, res) => res.json(articlesData));
+  app.post("/api/articles", (req, res) => {
+    const newItem = { id: `art_${Date.now()}`, ...req.body };
+    articlesData.push(newItem);
+    profileData.stats.articlesCount = articlesData.length;
+    res.json(newItem);
+  });
+  app.put("/api/articles/:id", (req, res) => {
+    const index = articlesData.findIndex((a) => a.id === req.params.id);
+    if (index !== -1) {
+      articlesData[index] = { ...articlesData[index], ...req.body };
+      return res.json(articlesData[index]);
+    }
+    res.status(404).json({ error: "Item not found" });
+  });
+  app.delete("/api/articles/:id", (req, res) => {
+    articlesData = articlesData.filter((a) => a.id !== req.params.id);
+    profileData.stats.articlesCount = articlesData.length;
+    res.json({ success: true });
+  });
+
+  // Promos API
+  app.get("/api/promos", (req, res) => res.json(promosData));
+  app.post("/api/promos", (req, res) => {
+    const newItem = { id: `pro_${Date.now()}`, ...req.body };
+    promosData.push(newItem);
+    res.json(newItem);
+  });
+  app.put("/api/promos/:id", (req, res) => {
+    const index = promosData.findIndex((p) => p.id === req.params.id);
+    if (index !== -1) {
+      promosData[index] = { ...promosData[index], ...req.body };
+      return res.json(promosData[index]);
+    }
+    res.status(404).json({ error: "Item not found" });
+  });
+  app.delete("/api/promos/:id", (req, res) => {
+    promosData = promosData.filter((p) => p.id !== req.params.id);
+    res.json({ success: true });
+  });
+
+  // Gallery API
+  app.get("/api/gallery", (req, res) => res.json(galleryData));
+  app.post("/api/gallery", (req, res) => {
+    const newItem = { id: `gal_${Date.now()}`, ...req.body };
+    galleryData.push(newItem);
+    res.json(newItem);
+  });
+  app.delete("/api/gallery/:id", (req, res) => {
+    galleryData = galleryData.filter((g) => g.id !== req.params.id);
+    res.json({ success: true });
+  });
+
+  // Partners API
+  app.get("/api/partners", (req, res) => res.json(partnersData));
+  app.post("/api/partners", (req, res) => {
+    const newItem = { id: `part_${Date.now()}`, ...req.body };
+    partnersData.push(newItem);
+    res.json(newItem);
+  });
+
+  // FAQ API
+  app.get("/api/faqs", (req, res) => res.json(faqsData));
+  app.post("/api/faqs", (req, res) => {
+    const newItem = { id: `faq_${Date.now()}`, ...req.body };
+    faqsData.push(newItem);
+    res.json(newItem);
+  });
+
+  // Contact Messages API
+  app.get("/api/contact", (req, res) => res.json(contactMessages));
+  app.post("/api/contact", (req, res) => {
+    const msg = {
+      id: `msg_${Date.now()}`,
+      ...req.body,
+      createdAt: new Date().toISOString(),
+      status: "Baru"
+    };
+    contactMessages.unshift(msg);
+    res.json({ success: true, message: msg });
+  });
+
+  // Member Applications API
+  app.get("/api/member-applications", (req, res) => res.json(memberApplications));
+  app.post("/api/member-application", (req, res) => {
+    const appItem = {
+      id: `app_${Date.now()}`,
+      ...req.body,
+      createdAt: new Date().toISOString(),
+      status: "Menunggu Verifikasi"
+    };
+    memberApplications.unshift(appItem);
+    res.json({ success: true, application: appItem });
+  });
+  app.put("/api/member-applications/:id", (req, res) => {
+    const index = memberApplications.findIndex((a) => a.id === req.params.id);
+    if (index !== -1) {
+      memberApplications[index] = { ...memberApplications[index], ...req.body };
+      if (req.body.status === "Disetujui") {
+        profileData.stats.membersCount += 1;
+      }
+      return res.json(memberApplications[index]);
+    }
+    res.status(404).json({ error: "Application not found" });
+  });
+
+  // Gemini AI Assistant Endpoint
+  app.post("/api/ai/generate", async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(400).json({ 
+          error: "API Key Gemini belum diset. Anda dapat mengkonfigurasinya di menu Secrets." 
+        });
+      }
+      const ai = new GoogleGenAI({ apiKey });
+      const { prompt, context } = req.body;
+
+      const systemPrompt = `Anda adalah asisten AI resmi untuk Koperasi Desa Merah Putih Desa Talagakulon, Kecamatan Talaga, Kabupaten Majalengka, Jawa Barat. Berikan jawaban dalam bahasa Indonesia yang formal, sopan, komunikatif, dan informatif. Context: ${context || 'Koperasi Desa Talagakulon'}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `${systemPrompt}\n\nUser Prompt: ${prompt}`
+      });
+
+      res.json({ text: response.text });
+    } catch (err: any) {
+      console.error("Gemini AI error:", err);
+      res.status(500).json({ error: err.message || "Gagal berkomunikasi dengan Gemini AI" });
+    }
+  });
+
+  // Vite Middleware handling for development and production
+  if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: 'spa'
+      appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server Koperasi Merah Putih Talagakulon running on http://0.0.0.0:${PORT}`);
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server Koperasi Talagakulon running on http://0.0.0.0:${PORT}`);
   });
 }
 
