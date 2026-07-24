@@ -1,0 +1,6 @@
+{
+  "name": "Koperasi Desa Merah Putih Talagakulon",
+  "description": "Microsite Koperasi Desa Merah Putih Desa Talagakulon, Majalengka - Pusat Layanan Ekonomi, Potensi Desa, Katalog Produk, Artikel, & Admin Panel.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
